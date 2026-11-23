@@ -9,7 +9,7 @@ on:
 
 jobs:
   package:
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
           path: FAKE77031.tar
 
   host-tests:
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
