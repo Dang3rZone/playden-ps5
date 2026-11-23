@@ -1,0 +1,50 @@
+# Fork only, never part of a pull request: builds the PS5 package and runs the probe tests on macOS,
+# the host the build supports, for every push to this branch.
+name: Fork PS5 build
+
+on:
+  push:
+    branches: [ci/ps5-build]
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: macos-14
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install tools
+        run: brew install ninja pkgconf sdl2-compat llvm@18
+      - name: Fetch dependencies
+        run: scripts/fetch-deps.sh
+      - name: Build root helper
+        run: scripts/build-lapy-helper.sh
+      - name: Build PS5 package
+        run: scripts/build-homebrew-ps5.sh
+      # A tar keeps the file modes, which the console deploy tool copies exactly; an artifact zip drops them.
+      - name: Pack
+        run: tar -C build/homebrew-ps5/dist -cf FAKE77031.tar FAKE77031
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FAKE77031
+          path: FAKE77031.tar
+
+  host-tests:
+    runs-on: macos-14
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install tools
+        run: brew install ninja pkgconf sdl2-compat llvm@18
+      - name: Prepare host dependencies
+        run: scripts/network-deps/prepare-host-deps.sh
+      - name: Configure
+        run: scripts/build-homebrew.sh --prepare-only && cmake --preset homebrew-host
+      - name: Build probe and settings tests
+        run: cmake --build --preset homebrew-host --target game_probe_test game_settings_test
+      - name: Run them
+        run: ctest --preset homebrew-host -R '^(game_probe|game_settings)$' --output-on-failure
